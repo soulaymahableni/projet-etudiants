@@ -1,0 +1,48 @@
+# Java / Maven
+target/
+*.class
+*.jar
+.mvn/
+mvnw
+mvnw.cmd
+
+# Node
+node_modules/
+.next/
+out/
+.cache/
+
+# Flutter
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/build/
+**/.pub-cache/
+**/.pub/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+
+# Logs
+*.log
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# JaCoCo
+*.exec
