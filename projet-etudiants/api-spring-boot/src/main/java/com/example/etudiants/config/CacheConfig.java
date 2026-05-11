@@ -1,7 +1,5 @@
 package com.example.etudiants.config;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
@@ -19,9 +17,6 @@ public class CacheConfig {
     public RedisCacheConfiguration cacheConfiguration() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
-        mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        mapper.activateDefaultTyping(mapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL);
 
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))

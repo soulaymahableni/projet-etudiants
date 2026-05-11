@@ -16,7 +16,6 @@ import java.util.List;
 @RequestMapping("/api/departements")
 @RequiredArgsConstructor
 @Tag(name = "Departements", description = "Gestion des departements")
-@CrossOrigin(origins = "*")
 public class DepartementController {
 
     private final DepartementService service;

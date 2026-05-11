@@ -1,9 +1,10 @@
 # Docker Compose unifie - orchestration de tous les microservices
 # Demarrage : docker compose up --build
-
 services:
 
-  # ----- Bases de donnees -----
+  # ============================================================
+  # Bases de donnees
+  # ============================================================
   postgres:
     image: postgres:15-alpine
     container_name: postgres
@@ -36,6 +37,11 @@ services:
       - postgres_notes_data:/var/lib/postgresql/data
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -44,6 +50,11 @@ services:
       - "6379:6379"
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mongodb:
     image: mongo:7
@@ -55,7 +66,115 @@ services:
     networks:
       - app-net
 
-  # ----- Eureka registry -----
+  # ============================================================
+  # Kafka (Partie 5 - Q2)
+  # ============================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT permet aux services dans Docker de joindre kafka:9092
+      # PLAINTEXT_HOST permet aux outils sur la machine hote (localhost:29092)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - app-net
+
+  # ============================================================
+  # Stack ELK : logs centralises (Partie 5 - Q3)
+  # ============================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - app-net
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    container_name: logstash
+    ports:
+      - "5000:5000"
+      - "9600:9600"
+    volumes:
+      - ./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - app-net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - app-net
+
+  # ============================================================
+  # Monitoring : Prometheus + Grafana (Partie 5 - Q3)
+  # ============================================================
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - app-net
+
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: grafana
+    ports:
+      - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - app-net
+
+  # ============================================================
+  # Eureka registry
+  # ============================================================
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
@@ -64,7 +183,9 @@ services:
     networks:
       - app-net
 
-  # ----- Microservices metier -----
+  # ============================================================
+  # Microservices metier
+  # ============================================================
   etudiant-service:
     build: ./api-spring-boot
     container_name: etudiant-service
@@ -77,6 +198,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      # Partie 5 - Q2 : Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,8 +207,16 @@ services:
         condition: service_started
       eureka-server:
         condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   grading-service:
     build: ./grading-service
@@ -97,11 +228,43 @@ services:
       SPRING_DATASOURCE_USERNAME: notes
       SPRING_DATASOURCE_PASSWORD: notes
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      # Partie 5 - Q2 : Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
-      - postgres-notes
-      - eureka-server
+      postgres-notes:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Partie 5 - Q2 : nouveau microservice consumer Kafka
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_started
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   auth-service:
     build: ./auth-service
@@ -117,7 +280,9 @@ services:
     networks:
       - app-net
 
-  # ----- API Gateway -----
+  # ============================================================
+  # API Gateway
+  # ============================================================
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
@@ -133,7 +298,9 @@ services:
     networks:
       - app-net
 
-  # ----- Frontend -----
+  # ============================================================
+  # Frontend
+  # ============================================================
   frontend:
     build: ./frontend
     container_name: frontend
@@ -146,10 +313,16 @@ services:
     networks:
       - app-net
 
+# ============================================================
+# Volumes & Networks
+# ============================================================
 volumes:
   postgres_data:
   postgres_notes_data:
   mongo_data:
+  elasticsearch_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   app-net:

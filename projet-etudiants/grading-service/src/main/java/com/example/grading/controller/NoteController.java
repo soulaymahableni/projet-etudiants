@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/notes")
 @RequiredArgsConstructor
 @Tag(name = "Notes", description = "Gestion des notes")
-@CrossOrigin(origins = "*")
+
 public class NoteController {
 
     private final NoteService service;

@@ -21,6 +21,14 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:6379}
   cache:
     type: redis
+     
+     # ✅ Kafka (Partie 5 - Q2)
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
 
 server:
   port: 8081

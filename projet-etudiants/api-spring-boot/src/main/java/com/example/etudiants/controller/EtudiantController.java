@@ -18,7 +18,7 @@ import java.util.List;
 @RequestMapping("/api/etudiants")
 @RequiredArgsConstructor
 @Tag(name = "Etudiants", description = "Gestion des etudiants")
-@CrossOrigin(origins = "*")
+
 public class EtudiantController {
 
     private final EtudiantService service;

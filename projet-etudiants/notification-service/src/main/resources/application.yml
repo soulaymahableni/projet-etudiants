@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: notification-service
+
+  # ✅ Kafka Consumer (Partie 5 - Q2)
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-group
+      # earliest = consomme aussi les messages publiés avant le démarrage du consumer.
+      # Utile en dev : si notification-service est arrêté quand on crée un étudiant,
+      # il rattrape le message au redémarrage.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        # "*" autorise toutes les classes Java à être désérialisées.
+        # En production, on restreindrait à des packages précis.
+        spring.json.trusted.packages: "*"
+
+server:
+  port: 8083
+
+# ✅ Actuator + Prometheus (Partie 5 - Q3)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.example.notification: INFO
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO

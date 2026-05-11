@@ -4,6 +4,7 @@ import com.example.grading.client.EtudiantClient;
 import com.example.grading.dto.NoteDTO;
 import com.example.grading.entity.Note;
 import com.example.grading.exception.ResourceNotFoundException;
+import com.example.grading.kafka.KafkaProducerService;  // ✅ NOUVEAU IMPORT
 import com.example.grading.mapper.NoteMapper;
 import com.example.grading.repository.NoteRepository;
 import feign.FeignException;
@@ -23,6 +24,7 @@ public class NoteService {
     private final NoteRepository repository;
     private final NoteMapper mapper;
     private final EtudiantClient etudiantClient;
+    private final KafkaProducerService kafkaProducerService;  // ✅ NOUVEAU
 
     @Transactional(readOnly = true)
     public List<NoteDTO> findAll() {
@@ -44,7 +46,20 @@ public class NoteService {
         verifyEtudiantExists(dto.getStudentId());
         Note entity = mapper.toEntity(dto);
         entity.setId(null);
-        return mapper.toDto(repository.save(entity));
+        Note saved = repository.save(entity);
+        NoteDTO result = mapper.toDto(saved);
+
+        // ✅ Partie 5 - Q2 : publier l'événement Kafka après la création de la note
+        // notification-service consommera cet événement et simulera une notification.
+        // Si Kafka est down, la note reste sauvegardée (découplage).
+        kafkaProducerService.publishNoteCreated(
+                saved.getId(),
+                saved.getStudentId(),
+                saved.getMatiere(),
+                saved.getValeur()
+        );
+
+        return result;
     }
 
     public NoteDTO update(Long id, NoteDTO dto) {

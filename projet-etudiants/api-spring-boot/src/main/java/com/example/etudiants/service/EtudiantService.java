@@ -4,6 +4,7 @@ import com.example.etudiants.dto.EtudiantDTO;
 import com.example.etudiants.entity.Departement;
 import com.example.etudiants.entity.Etudiant;
 import com.example.etudiants.exception.ResourceNotFoundException;
+import com.example.etudiants.kafka.KafkaProducerService;  // ✅ NOUVEAU IMPORT
 import com.example.etudiants.mapper.EtudiantMapper;
 import com.example.etudiants.repository.DepartementRepository;
 import com.example.etudiants.repository.EtudiantRepository;
@@ -23,6 +24,7 @@ public class EtudiantService {
     private final EtudiantRepository etudiantRepository;
     private final DepartementRepository departementRepository;
     private final EtudiantMapper mapper;
+    private final KafkaProducerService kafkaProducerService;  // ✅ NOUVEAU
 
     @Cacheable(value = "etudiants")
     @Transactional(readOnly = true)
@@ -55,7 +57,14 @@ public class EtudiantService {
         Etudiant entity = mapper.toEntity(dto, dep);
         entity.setId(null);
         Etudiant saved = etudiantRepository.save(entity);
-        return mapper.toDto(saved);
+        EtudiantDTO result = mapper.toDto(saved);
+
+        // ✅ Partie 5 - Q2 : publier l'événement Kafka après la création
+        // Le service ne connaît pas notification-service, il parle uniquement à Kafka.
+        // Si Kafka est down, la création reste persistée (découplage fort).
+        kafkaProducerService.publishEtudiantCreated(result);
+
+        return result;
     }
 
     @CacheEvict(value = "etudiants", allEntries = true)

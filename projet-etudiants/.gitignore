@@ -46,3 +46,21 @@ cypress/screenshots/
 
 # JaCoCo
 *.exec
+
+# === Partie 5 - Fichiers à ignorer ===
+# Maven local cache (très lourd, jamais commité)
+**/.m2/
+**/target/
+
+# Fichiers de test temporaires
+**/test-output.txt
+**/*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
