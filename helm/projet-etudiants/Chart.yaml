@@ -1,0 +1,16 @@
+apiVersion: v2
+name: projet-etudiants
+description: Plateforme micro services de gestion des etudiants (Kubernetes-native)
+type: application
+# Version du Chart Helm (incrementee a chaque modification du chart)
+version: 1.0.0
+# Version applicative deployee
+appVersion: "2.0.0"
+keywords:
+  - microservices
+  - spring-boot
+  - kubernetes
+  - helm
+maintainers:
+  - name: Etudiant
+    email: etudiant@example.com

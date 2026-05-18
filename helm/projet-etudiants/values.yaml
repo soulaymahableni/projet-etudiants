@@ -1,0 +1,96 @@
+# =========================================
+# Valeurs par defaut pour le Chart projet-etudiants
+# =========================================
+# Toutes ces valeurs sont referencables dans les templates via {{ .Values.xxx }}.
+# Pour surcharger en production, creer un values-prod.yaml et l'utiliser :
+#   helm upgrade projet-etudiants ./helm/projet-etudiants/ -f values-prod.yaml
+
+# ------- Nombre de replicas par service -------
+replicaCount:
+  etudiantService: 2
+  gradingService: 1
+  authService: 1
+  frontend: 1
+
+# ------- Images Docker -------
+images:
+  etudiantService:
+    repository: wahidhamdi/etudiant-service
+    tag: "2.0"
+    pullPolicy: IfNotPresent
+  gradingService:
+    repository: wahidhamdi/grading-service
+    tag: "2.0"
+    pullPolicy: IfNotPresent
+  authService:
+    repository: wahidhamdi/auth-service
+    tag: "2.0"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: wahidhamdi/frontend
+    tag: "2.0"
+    pullPolicy: IfNotPresent
+
+# ------- PostgreSQL -------
+postgres:
+  image: postgres:15-alpine
+  storage: 1Gi
+  database: etudiantsdb
+  # En production, remplacer par AWS RDS (host externe)
+  external: false
+  externalHost: ""
+
+# ------- MongoDB -------
+mongodb:
+  image: mongo:7
+  storage: 1Gi
+  database: authdb
+  external: false
+  externalHost: ""
+
+# ------- Redis -------
+redis:
+  image: redis:7-alpine
+  external: false
+  externalHost: ""
+
+# ------- Kafka / Zookeeper -------
+kafka:
+  image: confluentinc/cp-kafka:7.5.0
+  external: false
+zookeeper:
+  image: confluentinc/cp-zookeeper:7.5.0
+
+# ------- Secrets (encodes en base64) -------
+secrets:
+  postgres:
+    db: ZXR1ZGlhbnRzZGI=          # etudiantsdb
+    user: cG9zdGdyZXM=            # postgres
+    password: cGFzc3dvcmQ=        # password
+  jwt:
+    secret: bW9uX3NlY3JldF9qd3RfdHJlc19sb25nX2FfY2hhbmdlcl9lbl9wcm9k
+  mongodb:
+    uri: bW9uZ29kYjovL21vbmdvZGI6MjcwMTcvYXV0aGRi
+
+# ------- Ressources (par service applicatif) -------
+resources:
+  etudiantService:
+    requests: { memory: "512Mi", cpu: "250m" }
+    limits:   { memory: "1Gi",   cpu: "500m" }
+  gradingService:
+    requests: { memory: "512Mi", cpu: "250m" }
+    limits:   { memory: "1Gi",   cpu: "500m" }
+  authService:
+    requests: { memory: "128Mi", cpu: "100m" }
+    limits:   { memory: "256Mi", cpu: "300m" }
+  frontend:
+    requests: { memory: "128Mi", cpu: "100m" }
+    limits:   { memory: "256Mi", cpu: "300m" }
+
+# ------- Ingress -------
+ingress:
+  enabled: true
+  className: "traefik"
+  host: projet-etudiants.local
+  tls:
+    enabled: false

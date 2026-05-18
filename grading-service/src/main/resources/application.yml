@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: grading-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notes}
+    username: ${SPRING_DATASOURCE_USERNAME:notes}
+    password: ${SPRING_DATASOURCE_PASSWORD:notes}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+server:
+  port: 8082
+
+# Partie 6 - Q2 : configuration Eureka supprimee.
+# L'appel a etudiant-service passe par le DNS interne Kubernetes.
+# En docker-compose local, le hostname "etudiant-service" fonctionne aussi
+# car Docker Compose cree un reseau interne avec le meme nommage.
+clients:
+  etudiant-service:
+    url: ${ETUDIANT_SERVICE_URL:http://etudiant-service:8081}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

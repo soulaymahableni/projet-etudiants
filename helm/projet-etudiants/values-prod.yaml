@@ -1,0 +1,53 @@
+# =========================================
+# Surcharge des valeurs pour l'environnement PRODUCTION
+# =========================================
+# Utilisation :
+#   helm upgrade projet-etudiants ./helm/projet-etudiants/ \
+#     -f ./helm/projet-etudiants/values-prod.yaml
+
+# Plus de replicas en prod pour la haute disponibilite
+replicaCount:
+  etudiantService: 3
+  gradingService: 2
+  authService: 2
+  frontend: 2
+
+# En prod : images depuis Amazon ECR (privé)
+# images:
+#   etudiantService:
+#     repository: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/etudiant-service
+#     tag: "2.0"
+
+# Bases de donnees managees (AWS RDS / DocumentDB / ElastiCache)
+postgres:
+  external: true
+  externalHost: projet-etudiants-prod.cxxxxx.eu-west-1.rds.amazonaws.com
+  storage: 20Gi
+
+mongodb:
+  external: true
+  externalHost: projet-etudiants-prod.cluster-cxxxxx.eu-west-1.docdb.amazonaws.com
+
+redis:
+  external: true
+  externalHost: projet-etudiants-prod.cxxxxx.cache.amazonaws.com
+
+# Kafka : utiliser AWS MSK en production
+kafka:
+  external: true
+
+# Ressources renforcees en prod
+resources:
+  etudiantService:
+    requests: { memory: "1Gi",   cpu: "500m" }
+    limits:   { memory: "2Gi",   cpu: "1000m" }
+  gradingService:
+    requests: { memory: "1Gi",   cpu: "500m" }
+    limits:   { memory: "2Gi",   cpu: "1000m" }
+
+# Ingress prod : ALB + TLS
+ingress:
+  className: "alb"
+  host: projet-etudiants.example.com
+  tls:
+    enabled: true

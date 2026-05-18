@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grading-service
+  labels:
+    app: grading-service
+    {{- include "projet-etudiants.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.gradingService }}
+  selector:
+    matchLabels:
+      app: grading-service
+  template:
+    metadata:
+      labels:
+        app: grading-service
+    spec:
+      containers:
+        - name: grading-service
+          image: "{{ .Values.images.gradingService.repository }}:{{ .Values.images.gradingService.tag }}"
+          imagePullPolicy: {{ .Values.images.gradingService.pullPolicy }}
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_DATASOURCE_URL
+              {{- if .Values.postgres.external }}
+              value: "jdbc:postgresql://{{ .Values.postgres.externalHost }}:5432/{{ .Values.postgres.database }}"
+              {{- else }}
+              value: "jdbc:postgresql://postgres:5432/{{ .Values.postgres.database }}"
+              {{- end }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            # L'URL d'etudiant-service est resolue par le DNS interne K8s
+            - name: ETUDIANT_SERVICE_URL
+              value: "http://etudiant-service:8081"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.resources.gradingService | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grading-service
+  labels:
+    app: grading-service
+spec:
+  selector:
+    app: grading-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+  type: ClusterIP

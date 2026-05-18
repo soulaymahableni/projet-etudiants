@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: etudiant-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/etudiants}
+    username: ${SPRING_DATASOURCE_USERNAME:etudiants}
+    password: ${SPRING_DATASOURCE_PASSWORD:etudiants}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+    open-in-view: false
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  cache:
+    type: redis
+
+server:
+  port: 8081
+
+# Partie 6 - Q2 : configuration Eureka supprimee.
+# Kubernetes assure la decouverte de services via le DNS interne
+# (ex. etudiant-service.default.svc.cluster.local -> http://etudiant-service:8081).
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+# Actuator avec endpoints de readiness / liveness pour les probes Kubernetes
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  level:
+    com.example.etudiants: INFO
+    org.hibernate.SQL: WARN

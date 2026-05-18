@@ -1,0 +1,130 @@
+# Docker Compose - developpement local
+# ----------------------------------------
+# Partie 6 : Eureka et API Gateway ont ete supprimes.
+# En local, Docker Compose joue le role du DNS interne Kubernetes :
+# les services se trouvent les uns les autres via leur nom de service.
+# Demarrage : docker compose up --build
+# ----------------------------------------
+
+services:
+
+  # ----- Bases de donnees -----
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: etudiantsdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-net
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app-net
+
+  # ----- Microservices metier -----
+  # Plus de eureka-server : le DNS Docker / Kubernetes assure la decouverte.
+  # Plus d'api-gateway : exposition directe des services en local.
+
+  etudiant-service:
+    build: ./api-spring-boot
+    container_name: etudiant-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/etudiantsdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-net
+
+  grading-service:
+    build: ./grading-service
+    container_name: grading-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/etudiantsdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      # Appel inter-services : nom du conteneur Docker resolu par le reseau interne
+      ETUDIANT_SERVICE_URL: http://etudiant-service:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      etudiant-service:
+        condition: service_started
+    networks:
+      - app-net
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/authdb
+      JWT_SECRET: change-me-in-production
+      PORT: 3001
+    depends_on:
+      - mongodb
+    networks:
+      - app-net
+
+  # ----- Frontend -----
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # En local, le frontend tape directement etudiant-service / grading-service / auth-service.
+      # En prod (K8s), l'Ingress regroupe tout sous projet-etudiants.local.
+      NEXT_PUBLIC_ETUDIANT_API: http://localhost:8081
+      NEXT_PUBLIC_GRADING_API: http://localhost:8082
+      NEXT_PUBLIC_AUTH_API: http://localhost:3001
+    depends_on:
+      - etudiant-service
+      - grading-service
+      - auth-service
+    networks:
+      - app-net
+
+volumes:
+  postgres_data:
+  mongo_data:
+
+networks:
+  app-net:
+    driver: bridge

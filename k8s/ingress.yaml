@@ -1,0 +1,68 @@
+# L'Ingress remplace l'ancienne Spring Cloud Gateway.
+# Il route les requetes HTTP entrantes vers les bons Services
+# selon le chemin de l'URL.
+# K3S inclut par defaut le controleur Ingress Traefik.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-ingress
+  annotations:
+    # Sur K3S/Traefik : ces annotations definissent la classe Ingress
+    kubernetes.io/ingress.class: "traefik"
+spec:
+  rules:
+    # Ajoutez sur votre machine :
+    #   echo "<IP-VM-K3S> projet-etudiants.local" | sudo tee -a /etc/hosts
+    - host: projet-etudiants.local
+      http:
+        paths:
+          - path: /api/etudiants
+            pathType: Prefix
+            backend:
+              service:
+                name: etudiant-service
+                port:
+                  number: 8081
+          - path: /api/departements
+            pathType: Prefix
+            backend:
+              service:
+                name: etudiant-service
+                port:
+                  number: 8081
+          - path: /api/notes
+            pathType: Prefix
+            backend:
+              service:
+                name: grading-service
+                port:
+                  number: 8082
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 3001
+          - path: /swagger-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: etudiant-service
+                port:
+                  number: 8081
+          - path: /v3/api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: etudiant-service
+                port:
+                  number: 8081
+          # Fallback : frontend Next.js sur la racine
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

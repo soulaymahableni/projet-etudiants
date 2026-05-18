@@ -1,0 +1,73 @@
+package com.example.grading.service;
+
+import com.example.grading.client.EtudiantClient;
+import com.example.grading.dto.NoteDTO;
+import com.example.grading.entity.Note;
+import com.example.grading.exception.ResourceNotFoundException;
+import com.example.grading.mapper.NoteMapper;
+import com.example.grading.repository.NoteRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+/**
+ * Partie 6 - Q2 : NoteService adapte a l'usage du RestClient
+ * (les exceptions Feign n'existent plus).
+ */
+@Service
+@RequiredArgsConstructor
+@Transactional
+@Slf4j
+public class NoteService {
+
+    private final NoteRepository repository;
+    private final NoteMapper mapper;
+    private final EtudiantClient etudiantClient;
+
+    @Transactional(readOnly = true)
+    public List<NoteDTO> findAll() {
+        return repository.findAll().stream().map(mapper::toDto).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public NoteDTO findById(Long id) {
+        return repository.findById(id).map(mapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException("Note", id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<NoteDTO> findByStudent(Long studentId) {
+        return repository.findByStudentId(studentId).stream().map(mapper::toDto).toList();
+    }
+
+    public NoteDTO create(NoteDTO dto) {
+        verifyEtudiantExists(dto.getStudentId());
+        Note entity = mapper.toEntity(dto);
+        entity.setId(null);
+        return mapper.toDto(repository.save(entity));
+    }
+
+    public NoteDTO update(Long id, NoteDTO dto) {
+        Note existing = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Note", id));
+        verifyEtudiantExists(dto.getStudentId());
+        existing.setStudentId(dto.getStudentId());
+        existing.setMatiere(dto.getMatiere());
+        existing.setValeur(dto.getValeur());
+        return mapper.toDto(repository.save(existing));
+    }
+
+    public void delete(Long id) {
+        if (!repository.existsById(id)) throw new ResourceNotFoundException("Note", id);
+        repository.deleteById(id);
+    }
+
+    private void verifyEtudiantExists(Long studentId) {
+        // ResourceNotFoundException / IllegalStateException sont gerees
+        // par GlobalExceptionHandler en amont.
+        etudiantClient.getEtudiant(studentId);
+    }
+}

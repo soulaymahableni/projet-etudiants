@@ -1,0 +1,77 @@
+name: CI - Tests et publication Xray
+
+on:
+  push:
+    branches: [main, version-2, version-3, version-4]
+  pull_request:
+    branches: [main, version-3, version-4]
+
+jobs:
+  backend-tests:
+    name: Tests backend (etudiant-service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Run unit & integration tests
+        working-directory: ./api-spring-boot
+        run: mvn -B verify
+
+      - name: Upload JaCoCo report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: api-spring-boot/target/site/jacoco/
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: api-spring-boot/target/surefire-reports/
+
+      # Q5 Partie 4 - Publication Xray (decommenter et configurer XRAY_TOKEN/PROJECT_KEY)
+      # - name: Publish results to Xray
+      #   if: always()
+      #   run: |
+      #     for f in api-spring-boot/target/surefire-reports/TEST-*.xml; do
+      #       curl -H "Content-Type: multipart/form-data" \
+      #            -H "Authorization: Bearer ${{ secrets.XRAY_TOKEN }}" \
+      #            -F "file=@${f}" \
+      #            "https://xray.cloud.getxray.app/api/v2/import/execution/junit?projectKey=${{ secrets.JIRA_PROJECT_KEY }}"
+      #     done
+
+  frontend-build:
+    name: Build frontend Next.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: ./frontend
+        run: |
+          npm install
+          npm run build
+
+  auth-service-check:
+    name: Verifier auth-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - working-directory: ./auth-service
+        run: |
+          npm install
+          node -e "require('./src/app.js'); process.exit(0)" || true

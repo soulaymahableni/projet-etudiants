@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Etudiants</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 1100px; margin: 0 auto;
+            background: #fff; border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 2rem;
+        }
+        h1 { color: #4a5568; margin-top: 0; border-bottom: 3px solid #667eea; padding-bottom: 0.5rem; }
+        .stats { display: flex; gap: 1rem; margin: 1rem 0 2rem; }
+        .stat-box { flex: 1; background: #f7fafc; padding: 1rem; border-radius: 8px; border-left: 4px solid #667eea; }
+        .stat-box strong { display: block; font-size: 2rem; color: #667eea; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        thead { background: #667eea; color: #fff; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        tbody tr:hover { background: #f7fafc; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; background: #e6fffa; color: #234e52; border-radius: 12px; font-size: 0.85rem; }
+        .error { background: #fed7d7; color: #742a2a; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+        .loading { text-align: center; padding: 2rem; color: #718096; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Gestion des Etudiants</h1>
+        <div class="stats">
+            <div class="stat-box">
+                <strong id="total">--</strong>
+                <span>Etudiants</span>
+            </div>
+            <div class="stat-box">
+                <strong id="ageMoyen">--</strong>
+                <span>Age moyen</span>
+            </div>
+        </div>
+        <div id="content" class="loading">Chargement...</div>
+    </div>
+
+    <script>
+        fetch('/api/etudiants')
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(data => {
+                document.getElementById('total').textContent = data.length;
+                if (data.length === 0) {
+                    document.getElementById('content').innerHTML = '<p>Aucun etudiant.</p>';
+                    return;
+                }
+                const ages = data.map(e => e.age || 0);
+                const avg = (ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1);
+                document.getElementById('ageMoyen').textContent = avg;
+
+                const rows = data.map(e => `
+                    <tr>
+                        <td>${e.id}</td>
+                        <td>${e.cin}</td>
+                        <td>${e.nom}</td>
+                        <td>${e.dateNaissance}</td>
+                        <td>${e.age ?? '-'} ans</td>
+                        <td>${e.email ?? '-'}</td>
+                        <td><span class="badge">${e.departementNom ?? 'N/A'}</span></td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('content').innerHTML = `
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>CIN</th><th>Nom</th><th>Date de naissance</th><th>Age</th><th>Email</th><th>Departement</th></tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                `;
+            })
+            .catch(err => {
+                document.getElementById('content').innerHTML =
+                    `<div class="error">Erreur lors du chargement : ${err.message}</div>`;
+            });
+    </script>
+</body>
+</html>

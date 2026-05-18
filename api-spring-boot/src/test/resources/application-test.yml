@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  cache:
+    type: none
+
+# Partie 6 - Q2 : bloc eureka retire (architecture Kubernetes-native).
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
